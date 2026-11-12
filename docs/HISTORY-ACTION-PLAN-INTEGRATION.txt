@@ -1,0 +1,79 @@
+CATATAN: Dokumen ini adalah catatan historis sebelum restrukturisasi modular 2026-11-09.
+Nama path di bawah merujuk pada struktur lama; gunakan MIGRATION-MAP.md untuk path terbaru.
+
+SME NEXUS - PATCH ACTION PLAN (REVISI SETELAH AUDIT PROJECT LENGKAP)
+
+PATCH INI DIBUAT BERDASARKAN:
+- app/Models/User.php (PK users = id_user; nama = full_name)
+- app/Models/Intelligence/Analysis.php
+- app/Models/Intelligence/AnalysisFinding.php
+- app/Http/Controllers/Decision/DecisionController.php
+- app/Providers/DecisionServiceProvider.php
+- bootstrap/providers.php
+- routes/decision.php
+- resources/views/decision/index.blade.php
+- dump database SME Nexus yang disertakan sebelumnya
+
+ISI PATCH:
+- database/migrations/2026_11_08_230000_create_decision_action_plans_table.php
+- app/Models/Intelligence/ActionPlan.php
+- app/Http/Controllers/Decision/ActionPlanController.php
+- app/Http/Controllers/Decision/DecisionController.php
+- app/Models/Intelligence/Analysis.php (menambahkan relasi actionPlans)
+- app/Models/Intelligence/AnalysisFinding.php (menambahkan relasi actionPlans)
+- routes/decision.php (menambahkan endpoint Action Plan)
+- resources/views/decision/index.blade.php (UI Action Plan + riwayat analisis)
+
+PENTING - ROUTE:
+Tidak perlu mengubah bootstrap/app.php atau routes/web.php.
+Audit menemukan App\Modules\Decision\Providers\DecisionServiceProvider sudah terdaftar di
+bootstrap/providers.php dan memuat routes/decision.php melalui loadRoutesFrom().
+Jangan menambahkan require kedua kali karena akan membuat route terduplikasi.
+
+BATASAN PENUGASAN:
+Untuk versi awal, assigned_to otomatis diisi id_user pemilik UMKM yang login.
+Arsip belum menunjukkan model/relasi keanggotaan tim yang bisa dipakai untuk
+otorisasi penugasan kepada anggota lain. Jangan mengubah assigned_to dari form.
+
+CARA PASANG (JALANKAN DARI ROOT PROJECT, FOLDER YANG BERISI artisan):
+1. Backup project dan database terlebih dahulu.
+2. Ekstrak patch:
+   unzip -o /path/ke/action_plan_patch_v2.zip -d .
+3. Bersihkan cache Laravel:
+   php artisan optimize:clear
+4. Simulasikan migration:
+   php artisan migrate --pretend
+5. Jika SQL simulasi benar dan koneksi DB mengarah ke database yang tepat:
+   php artisan migrate
+6. Verifikasi route:
+   php artisan route:list --path=decision -v
+7. Kompilasi view:
+   php artisan view:cache
+   php artisan view:clear
+8. Jalankan test:
+   php artisan test --testsuite=Feature
+
+JANGAN menjalankan migrate:fresh, db:wipe, atau mengimpor ulang dump database
+ke database yang berisi data produksi.
+
+STATUS PEMERIKSAAN DI LINGKUNGAN AUDIT:
+- 217 file PHP dari source archive lolos php -l.
+- Seluruh file PHP di patch lolos php -l.
+- Foreign key disesuaikan dengan dump: users.id_user, intelligence_analyses.id,
+  intelligence_analysis_findings.id.
+- Routes Decision sudah terdaftar melalui DecisionServiceProvider.
+- Belum menjalankan php artisan test / route:list / view:cache karena arsip
+  konteks tidak menyertakan vendor dan file environment project aktif.
+- Folder database/factories tidak ikut dikumpulkan; test existing memakai
+  User::factory(), sehingga folder tersebut perlu ada di project lokal.
+
+TRANSISI STATUS:
+- todo -> in_progress
+- in_progress -> done
+- done -> in_progress (buka kembali)
+
+KEAMANAN:
+- Semua query Action Plan dibatasi id_user pemilik yang sedang login.
+- Finding wajib berasal dari analisis yang sama.
+- Perubahan status menggunakan transaksi dan lockForUpdate.
+- CSRF tetap aktif melalui middleware web dan @csrf di Blade.

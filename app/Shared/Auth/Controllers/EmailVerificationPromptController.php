@@ -1,0 +1,23 @@
+<?php
+
+namespace App\Shared\Auth\Controllers;
+
+use App\Shared\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class EmailVerificationPromptController extends Controller
+{
+    /**
+     * Display the email verification prompt.
+     */
+    public function __invoke(Request $request): RedirectResponse|View
+    {
+        if (! config('app.email_verification_enabled') || $request->user()->hasVerifiedEmail()) {
+            return redirect()->intended(route('dashboard', absolute: false));
+        }
+
+        return view('auth.verify-email');
+    }
+}
